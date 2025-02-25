@@ -1,3 +1,6 @@
+*/ Universidad del Valle de Guatemala
+   Santiago Burgos y Pablo Garcia*/
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #define F_CPU 16000000UL
@@ -47,9 +50,9 @@ typedef enum {
 	STATUS_ST_ARB_LOST_SLA_ACK = 0xB0,	// Arbitration lost in SLA+R/W as Master; own SLA+R has been received; ACK has been returned
 	STATUS_ST_DATA_ACK = 0xB8,			// Data byte in TWDRn has been transmitted;	ACK has been received
 	STATUS_ST_DATA_NACK = 0xC0,			// Data byte in TWDRn has been transmitted; NOT ACK has been received
-	STATUS_ST_LAST_DATA = 0xC8,			// Last data byte in TWDRn has been transmitted (TWEA =	ì0î); ACK has been received
+	STATUS_ST_LAST_DATA = 0xC8,			// Last data byte in TWDRn has been transmitted (TWEA =	‚Äú0‚Äù); ACK has been received
 
-	STATUS_NO_INFO = 0xF8,				// No relevant state information available; TWINT = ì0î
+	STATUS_NO_INFO = 0xF8,				// No relevant state information available; TWINT = ‚Äú0‚Äù
 	STATUS_BUS_ERROR = 0x00				// Bus error due to an illegal START or STOP condition
 };
 */
