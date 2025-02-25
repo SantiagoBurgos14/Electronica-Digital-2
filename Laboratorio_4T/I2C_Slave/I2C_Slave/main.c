@@ -1,3 +1,6 @@
+*/ Universidad del Valle de Guatemala
+   Santiago Burgos y Pablo Garcia*/
+	
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include "BitwiseManager/BitwiseManager_328PB.h"
@@ -57,7 +60,7 @@ int main(void)
 }
 
 void INIT_TWI(uint8_t twi_address) {
-	/* (1) The device’s own slave address has been received.
+	/* (1) The deviceâ€™s own slave address has been received.
 	*  (2) The TWEN bit enables TWI n operation and activates the TWI n interface.
 	*  (3) the TWI n interrupt request will be activated for as long as the TWCRn.TWINT Flag is high. */
 	TWAR0 = (twi_address << 1);
