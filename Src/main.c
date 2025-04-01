@@ -21,65 +21,56 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
-#include <stdint.h>
-
+#include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+typedef enum {
+	Arriba, Abajo, Izquierda, Derecha, Centro
+
+} J[];
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-uint8_t p1 = 0;	// jugador 1
-uint8_t p2 = 0;	// jugador 2
-uint8_t inicio = 0;	// inica juego
-uint8_t fin = 0;		// se acaba el juego
-uint8_t p1Wins = 0;		// gana el jugador 1
-uint8_t p2Wins = 0;		// gana el jugador 2
-uint8_t display[16] = { 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F,
-		0x6F, 0x77, 0x7C, 0x39, 0x5E, 0x79, 0x71 };
-uint8_t counter = 5;
-
-typedef struct {
-	GPIO_TypeDef *GPIOx;  // Puerto GPIO (Ej: GPIOA, GPIOB, etc.)
-	uint16_t GPIO_Pin;    // Pin específico del LED
-//uint8_t estado;       // Estado del LED (0 = apagado, 1 = encendido)
-} LEDP1_t;
-
-LEDP1_t J1[] = { { LED_A_GPIO_Port, LED_A_Pin }, { LED_B_GPIO_Port, LED_B_Pin },
-		{ LED_C_GPIO_Port, LED_C_Pin }, { LED_D_GPIO_Port, LED_D_Pin } };
-
-LEDP1_t J2[] = { { LED_E_GPIO_Port, LED_E_Pin }, { LED_F_GPIO_Port, LED_F_Pin },
-		{ LED_G_GPIO_Port, LED_G_Pin }, { LED_DP_GPIO_Port, LED_DP_Pin } };
-
-LEDP1_t Disp[] = { { LED_A_GPIO_Port, LED_A_Pin },
-		{ LED_B_GPIO_Port, LED_B_Pin }, { LED_C_GPIO_Port, LED_C_Pin }, {
-		LED_D_GPIO_Port, LED_D_Pin }, { LED_E_GPIO_Port, LED_E_Pin }, {
-		LED_F_GPIO_Port, LED_F_Pin }, { LED_G_GPIO_Port, LED_G_Pin }, {
-		LED_DP_GPIO_Port, LED_DP_Pin } };
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-void Mux1(void);
-void Mux2(void);
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
+UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+
+uint16_t adc_values[2];
+uint8_t adc_finish = 0;
+uint8_t buffer[10];		// bufer para la nucleo
+//uint8_t mensaje[] ;		// PRIEBA
+uint8_t rx_buffer[10];  // buffer para recibir datos del Arduino
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void send_Pos(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -88,378 +79,413 @@ static void MX_GPIO_Init(void);
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
-int main(void) {
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
 
-	/* USER CODE BEGIN 1 */
+  /* USER CODE BEGIN 1 */
 
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 
-	/* USER CODE END Init */
+  /* USER CODE END Init */
 
-	/* Configure the system clock */
-	SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	/* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-	/* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_ADC1_Init();
+  MX_USART2_UART_Init();
+  MX_USART1_UART_Init();
+  /* USER CODE BEGIN 2 */
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_values, 2);
 
-	/* USER CODE END 2 */
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
+	//HAL_UART_Receive_IT(&huart1, rx_buffer, 10);
+	HAL_UART_Receive_IT(&huart1, rx_buffer, 1);  // USART1: desde Arduino Nano
+
+
+
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+
+
+	//HAL_UART_Receive_IT(&huart2, rx_buffer, 10);  // inicia recepción con espacio suficiente
+
+	HAL_UART_Transmit(&huart2, rx_buffer, sizeof(rx_buffer), 100);
+	//HAL_UART_Transmit(&huart2, (uint8_t*) "Control 2: ", 11, 100);
+	//HAL_UART_Transmit(&huart2, rx_buffer, 10, 100);
+
 	while (1) {
 
+		HAL_Delay(500);
+		if (adc_finish) {
 
-		if (inicio == 1) {
-			HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 1); // Enciende el transistor del display
-			HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 0);	// Enciende el transistor de los leds
+			send_Pos();
 
-			for (int i = 5; i >= 0; i--) {
-				for (int j = 0; j < 7; j++)
-					HAL_GPIO_WritePin(Disp[j].GPIOx, Disp[j].GPIO_Pin,
-							(display[i] >> j) & 1);
-
-				HAL_Delay(250);
-				for (int j = 0; j < 7; j++) {
-					HAL_GPIO_WritePin(Disp[j].GPIOx, Disp[j].GPIO_Pin, 0);
-				}
-
-			}
-			inicio = 2;
-			HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 0);	// Apaga el transistor de los leds
-
+			adc_finish = 0;
 		}
+    /* USER CODE END WHILE */
 
-
-		if (p1Wins == 1) {
-			// Muestra el número 2
-			HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 0); // Apaga LEDs
-			HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 1); // Enciende display
-
-			uint8_t valor = display[1]; // Mostrar número 2
-			for (int i = 0; i < 8; i++)
-				HAL_GPIO_WritePin(Disp[i].GPIOx, Disp[i].GPIO_Pin, (valor >> i) & 1);
-
-			HAL_Delay(5);
-
-			HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0); // Apaga display
-			HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1); // Enciende LEDs
-
-			// Mostrar LEDs del jugador 2
-			for (int i = 0; i < 4; i++)
-				HAL_GPIO_WritePin(J1[i].GPIOx, J1[i].GPIO_Pin, 1);
-
-			HAL_Delay(5);
-		}
-
-		if (p2Wins == 1) {
-			// Muestra el número 2
-			HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 0); // Apaga LEDs
-			HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 1); // Enciende display
-
-			uint8_t valor = display[2]; // Mostrar número 2
-			for (int i = 0; i < 8; i++)
-				HAL_GPIO_WritePin(Disp[i].GPIOx, Disp[i].GPIO_Pin, (valor >> i) & 1);
-
-			HAL_Delay(5);
-
-			HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0); // Apaga display
-			HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1); // Enciende LEDs
-
-			// Mostrar LEDs del jugador 2
-			for (int i = 0; i < 4; i++){
-			HAL_GPIO_WritePin(J2[i].GPIOx, J2[i].GPIO_Pin, 1);
-			HAL_GPIO_WritePin(J1[i].GPIOx, J1[i].GPIO_Pin, 0);
-			}
-
-			HAL_Delay(5);
-		}
-
-		/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 	}
-
-
-	/* USER CODE END 3 */
+  /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-	/** Configure the main internal regulator output voltage
-	 */
-	__HAL_RCC_PWR_CLK_ENABLE();
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
 
-	/** Initializes the RCC Oscillators according to the specified parameters
-	 * in the RCC_OscInitTypeDef structure.
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-	RCC_OscInitStruct.PLL.PLLM = 8;
-	RCC_OscInitStruct.PLL.PLLN = 80;
-	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-	RCC_OscInitStruct.PLL.PLLQ = 2;
-	RCC_OscInitStruct.PLL.PLLR = 2;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-		Error_Handler();
-	}
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 64;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLR = 2;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/** Initializes the CPU, AHB and APB buses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
-		Error_Handler();
-	}
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**
- * @brief GPIO Initialization Function
- * @param None
- * @retval None
- */
-static void MX_GPIO_Init(void) {
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
-	/* USER CODE BEGIN MX_GPIO_Init_1 */
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
 
-	/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN ADC1_Init 0 */
 
-	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-	__HAL_RCC_GPIOC_CLK_ENABLE();
+  /* USER CODE END ADC1_Init 0 */
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOA,
-	LEDS_Pin | Disp_7S_Pin | LED_DP_Pin | TR_Pin | LED_C_Pin, GPIO_PIN_RESET);
+  ADC_ChannelConfTypeDef sConfig = {0};
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB,
-	LED_G_Pin | LED_D_Pin | LED_F_Pin | LED_E_Pin | LED_B_Pin, GPIO_PIN_RESET);
+  /* USER CODE BEGIN ADC1_Init 1 */
 
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(LED_A_GPIO_Port, LED_A_Pin, GPIO_PIN_RESET);
+  /* USER CODE END ADC1_Init 1 */
 
-	/*Configure GPIO pins : BTN_START_Pin BTN_P1_Pin BTN_P2_Pin */
-	GPIO_InitStruct.Pin = BTN_START_Pin | BTN_P1_Pin | BTN_P2_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV8;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/*Configure GPIO pins : LEDS_Pin Disp_7S_Pin LED_DP_Pin TR_Pin
-	 LED_C_Pin */
-	GPIO_InitStruct.Pin = LEDS_Pin | Disp_7S_Pin | LED_DP_Pin | TR_Pin
-			| LED_C_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/*Configure GPIO pins : LED_G_Pin LED_D_Pin LED_F_Pin LED_E_Pin
-	 LED_B_Pin */
-	GPIO_InitStruct.Pin = LED_G_Pin | LED_D_Pin | LED_F_Pin | LED_E_Pin
-			| LED_B_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
 
-	/*Configure GPIO pin : LED_A_Pin */
-	GPIO_InitStruct.Pin = LED_A_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-	HAL_GPIO_Init(LED_A_GPIO_Port, &GPIO_InitStruct);
+  /* USER CODE END ADC1_Init 2 */
 
-	/* EXTI interrupt init*/
-	HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+}
 
-	HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
 
-	HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+  /* USER CODE BEGIN USART1_Init 0 */
 
-	/* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END USART1_Init 0 */
 
-	/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 9600;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
-	// BOTON para iniciar////////////////////////
-	if (GPIO_Pin == BTN_START_Pin && inicio == 0) {
-
-		HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 1); // Enciende el tr5ansistor del display
-		HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 0);	// APAGA el transistor de los leds
-		inicio = 1;
-
-	}
-/////////////// JUGADOR 1 //////////////////
-	/*if (GPIO_Pin == BTN_P1_Pin && inicio == 2) {
-
-		HAL_GPIO_WritePin(J1[p1].GPIOx, J1[p1].GPIO_Pin, 1);
-		HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1);	// Enciende el transistor de los leds
-		HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0); // apaga el tr5ansistor del display
-
-		if (p1 > 1){
-		 HAL_GPIO_WritePin(J1[p1 - 1].GPIOx, J1[p1 - 1].GPIO_Pin, 0);
-		 p1++;
-		}
-		 if (p1 >= 4) {
-
-		 p1 = 3;
-		 p2 = -1;
-		 p1Wins = 1;
-		 for (int i = 0; i < 4; i++)
-		 HAL_GPIO_WritePin(J2[i].GPIOx, J2[i].GPIO_Pin, 0);
-		 }
-		 if (p1Wins == 1)
-		 for (int i = 0; i < 4; i++)
-		 HAL_GPIO_WritePin(J1[i].GPIOx, J1[i].GPIO_Pin, 1);
-
-	}*/
-
-	if (GPIO_Pin == BTN_P1_Pin && inicio == 2) {
-
-		HAL_GPIO_WritePin(J1[p1].GPIOx, J1[p1].GPIO_Pin, 1);
-		HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1);
-		HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0);
-
-		if (p1 > 0)
-			HAL_GPIO_WritePin(J1[p1 - 1].GPIOx, J1[p1 - 1].GPIO_Pin, 0);
-
-		p1++;
-
-		if (p1 >= 4) {
-			p1 = 3;
-			p2 = -1;
-			p1Wins = 1;
-			for (int i = 0; i < 4; i++)
-				HAL_GPIO_WritePin(J2[i].GPIOx, J2[i].GPIO_Pin, 0);
-		}
-
-		if (p1Wins == 1) {
-			for (int i = 0; i < 4; i++)
-				HAL_GPIO_WritePin(J1[i].GPIOx, J1[i].GPIO_Pin, 1);
-		}
-	}
-
-///////////// JUGADOR 2 ///////////////////////////
-	/*if (GPIO_Pin == BTN_P2_Pin && inicio == 2) {
-
-		HAL_GPIO_WritePin(J2[p2].GPIOx, J2[p2].GPIO_Pin, 1);
-		HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1);	// Enciende el transistor de los leds
-		HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0); // Enciende el tr5ansistor del display
-
-		if (p2 > 1){
-		 HAL_GPIO_WritePin(J2[p2 - 1].GPIOx, J2[p2 - 1].GPIO_Pin, 0);
-		 p2++;
-		}
-		 if (p2 >= 4) {
-
-		 p2 = 3;
-		 p1 = -1;
-		 p2Wins = 1;
-		 for (int i = 0; i < 4; i++)
-		 HAL_GPIO_WritePin(J1[i].GPIOx, J1[i].GPIO_Pin, 0);
-
-		 }
-		 if (p2Wins == 1)
-		 for (int i = 0; i < 4; i++)HAL_GPIO_WritePin(J2[i].GPIOx, J2[i].GPIO_Pin, 1);;
-
-	}*/
-	if (GPIO_Pin == BTN_P2_Pin && inicio == 2) {
-
-		HAL_GPIO_WritePin(J2[p2].GPIOx, J2[p2].GPIO_Pin, 1);
-		HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1);
-		HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0);
-
-		if (p2 > 0)
-			HAL_GPIO_WritePin(J2[p2 - 1].GPIOx, J2[p2 - 1].GPIO_Pin, 0);
-
-		p2++;
-
-		if (p2 >= 4) {
-			p2 = 3;
-			p1 = -1;
-			p2Wins = 1;
-			for (int i = 0; i < 4; i++)
-				HAL_GPIO_WritePin(J1[i].GPIOx, J1[i].GPIO_Pin, 0);
-		}
-
-		if (p2Wins == 1) {
-			for (int i = 0; i < 4; i++)
-				HAL_GPIO_WritePin(J2[i].GPIOx, J2[i].GPIO_Pin, 1);
-		}
-	}
+	adc_finish = 1;
 
 }
 
-void Mux1(void) {
+/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	if (huart->Instance == USART1) {
 
-	HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 0);	// apaga el transistor de los leds
-	HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 1); // Enciende el transistor del display
-	HAL_Delay(3);
+		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // LED USER
 
-	HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0); // Enciende el transistor del display
-	HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1);	// Enciende el transistor de los leds
-	HAL_Delay(3);
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Control 2: ", 11, 100);
+		HAL_UART_Transmit(&huart2, rx_buffer, 10, 100);
 
+		// recepción
+		HAL_UART_Receive_IT(&huart1, rx_buffer, 10);		// recepción
+	}
+}*/
+
+/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART1) {
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // LED para debug
+
+        HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: ", 11, 100);
+        HAL_UART_Transmit(&huart2, rx_buffer, 10, 100);  // A PC por USART2
+
+        HAL_UART_Receive_IT(&huart1, rx_buffer, 10);  // Reactivar recepción
+    }
+}*/
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART1) {
+
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // Debug LED
+
+        // Interpretar el primer carácter recibido
+        switch (rx_buffer[0]) {
+            case 'U':
+                HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: Arriba\n", 19, 100);
+                break;
+            case 'D':
+                HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: Abajo\n", 18, 100);
+                break;
+            case 'L':
+                HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: Izquierda\n", 22, 100);
+                break;
+            case 'R':
+                HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: Derecha\n", 20, 100);
+                break;
+            case 'A':
+                HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: Accion A\n", 21, 100);
+                break;
+            case 'B':
+                HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: Accion B\n", 21, 100);
+                break;
+            default:
+                HAL_UART_Transmit(&huart2, (uint8_t *)"Control 2: ???\n", 16, 100);
+                break;
+        }
+
+        // Reactivar recepción por interrupción (1 byte + '\n')
+        HAL_UART_Receive_IT(&huart1, rx_buffer, 1);  // 'U' + '\n'
+    }
 }
 
-void Mux2(void) {
-	HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 0);	// apaga el transistor de los leds
-	HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 1); // Enciende el transistor del display
-	HAL_Delay(3);
 
-	HAL_GPIO_WritePin(Disp_7S_GPIO_Port, Disp_7S_Pin, 0); // Enciende el transistor del display
-	HAL_GPIO_WritePin(LEDS_GPIO_Port, LEDS_Pin, 1);	// Enciende el transistor de los leds
-	HAL_Delay(3);
+
+// callback
+/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART2) {
+
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // LED debug
+
+        for (int i = 0; i < 10; i++) {
+            HAL_UART_Transmit(&huart2, (uint8_t *)"Byte: ", 6, 100);
+            HAL_UART_Transmit(&huart2, &rx_buffer[i], 1, 100);
+            HAL_UART_Transmit(&huart2, (uint8_t *)"\n", 1, 100);
+        }
+
+        HAL_UART_Transmit(&huart2, (uint8_t *)"FIN\n\n", 5, 100);
+
+        HAL_UART_Receive_IT(&huart2, rx_buffer, 10);
+    }
+}*/
+
+
+
+
+void send_Pos(void) {
+
+	uint16_t EW = adc_values[1];
+	uint16_t NS = adc_values[0];
+
+	if (EW > 1900 && EW < 2100 && NS > 1900 && NS < 2100) {
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Control 1: ", 11, 100);
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Centro\n", 7, 100);
+	} else if (NS > 3000) {
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Control 1: ", 11, 100);
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Arriba\n", 7, 100);
+	} else if (NS < 1000) {
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Control 1: ", 11, 100);
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Abajo\n", 6, 100);
+	} else if (EW > 3000) {
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Control 1: ", 11, 100);
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Derecha\n", 8, 100);
+	} else if (EW < 1000) {
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Control 1: ", 11, 100);
+		HAL_UART_Transmit(&huart2, (uint8_t*) "Izquierda\n", 10, 100);
+	}
 }
+
 /* USER CODE END 4 */
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
-void Error_Handler(void) {
-	/* USER CODE BEGIN Error_Handler_Debug */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-	/* USER CODE END Error_Handler_Debug */
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
